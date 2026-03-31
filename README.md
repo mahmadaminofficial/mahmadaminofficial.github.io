@@ -1,1 +1,0 @@
-# mahmadaminofficial.github.io
