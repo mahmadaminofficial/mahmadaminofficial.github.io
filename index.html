@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interactive K-Map Tutorial</title>
+<style>
+:root { 
+  /* Base colors */
+  --g: #22c55e; --b: #3b82f6; --r: #ef4444; --o: #f59e0b; --p: #a855f7; 
+  
+  /* Theme defaults using requested background */
+  --color-background-primary: #262624;
+  --color-background-secondary: #323230;
+  --color-border-secondary: #52524f;
+  --color-border-tertiary: #3e3e3c;
+  --color-text-primary: #f8fafc;
+  --color-text-secondary: #a1a1aa;
+  
+  /* Badge / Tag colors */
+  --color-background-info: #0c4a6e;
+  --color-text-info: #7dd3fc;
+  --color-border-info: #0284c7;
+  --color-background-success: #14532d;
+  --color-text-success: #86efac;
+  --color-background-warning: #713f12;
+  --color-text-warning: #fde047;
+  
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-background-primary: #262624;
+    --color-background-secondary: #323230;
+    --color-border-secondary: #52524f;
+    --color-border-tertiary: #3e3e3c;
+    --color-text-primary: #f8fafc;
+    --color-text-secondary: #a1a1aa;
+    
+    --color-background-info: #0c4a6e;
+    --color-text-info: #7dd3fc;
+    --color-border-info: #0284c7;
+    --color-background-success: #14532d;
+    --color-text-success: #86efac;
+    --color-background-warning: #713f12;
+    --color-text-warning: #fde047;
+  }
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); background: var(--color-background-primary); color: var(--color-text-primary); line-height: 1.5; padding: 20px; }
+.wrap { max-width: 800px; margin: 0 auto; }
+.tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; border-bottom: 2px solid var(--color-border-tertiary); padding-bottom: 12px; }
+.tab { padding: 8px 16px; border-radius: 20px; border: 1px solid var(--color-border-secondary); font-size: 14px; font-weight: 500; cursor: pointer; background: var(--color-background-primary); color: var(--color-text-secondary); transition: all .2s ease; }
+.tab:hover { background: var(--color-background-secondary); }
+.tab.active { background: var(--color-text-primary); color: var(--color-background-primary); border-color: var(--color-text-primary); }
+.section { display: none; animation: fadeIn 0.3s ease; }
+.section.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+h2 { font-size: 20px; font-weight: 600; margin-bottom: 16px; color: var(--color-text-primary); }
+h3 { font-size: 16px; font-weight: 600; color: var(--color-text-primary); margin-bottom: 8px; margin-top: 20px;}
+p.desc { font-size: 14px; color: var(--color-text-secondary); margin-bottom: 16px; }
+
+/* K-map cell grid */
+.kmap-wrap { overflow-x: auto; margin-bottom: 16px; }
+.kmap { border-collapse: collapse; margin: 0 auto 12px; }
+.kmap td, .kmap th { width: 56px; height: 56px; text-align: center; vertical-align: middle; font-size: 16px; border: 1.5px solid var(--color-border-secondary); position: relative; }
+.kmap th { font-size: 12px; color: var(--color-text-secondary); font-weight: 500; background: var(--color-background-secondary); border: none; }
+.kmap td { background: var(--color-background-primary); font-weight: 600; cursor: default; }
+.kmap td.one { color: var(--color-text-primary); }
+.kmap td.zero { color: var(--color-text-secondary); font-weight: 400; opacity: 0.5; }
+.kmap td.dc { color: var(--color-text-warning); font-weight: bold; }
+
+/* 5-Var K-Map specific layouts */
+.maps-5v { display: flex; flex-wrap: wrap; gap: 24px; justify-content: center; margin-bottom: 14px; }
+.map-wrapper { display: flex; flex-direction: column; align-items: center; }
+.map-title { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: var(--color-text-primary); background: var(--color-background-secondary); padding: 4px 12px; border-radius: 12px; border: 1px solid var(--color-border-secondary); }
+
+/* Group boxes overlaid via ring borders on cells */
+.kmap td.g1 { outline: 3px solid #22c55e; outline-offset: -3px; border-radius: 4px; z-index: 1;}
+.kmap td.g2 { outline: 3px solid #3b82f6; outline-offset: -3px; border-radius: 4px; z-index: 2;}
+.kmap td.g3 { outline: 3px solid #ef4444; outline-offset: -3px; border-radius: 4px; z-index: 3;}
+.kmap td.g4 { outline: 3px solid #f59e0b; outline-offset: -3px; border-radius: 4px; z-index: 4;}
+.kmap td.g5 { outline: 3px solid #a855f7; outline-offset: -3px; border-radius: 4px; z-index: 5;}
+.kmap td.g12 { box-shadow: inset 0 0 0 3px #22c55e, inset 0 0 0 6px #3b82f6; border-radius:4px; z-index: 2;}
+.kmap td.g13 { box-shadow: inset 0 0 0 3px #22c55e, inset 0 0 0 6px #ef4444; border-radius:4px; z-index: 3;}
+.kmap td.g23 { box-shadow: inset 0 0 0 3px #3b82f6, inset 0 0 0 6px #ef4444; border-radius:4px; z-index: 3;}
+
+.expr { font-size: 16px; font-weight: 600; color: var(--color-text-primary); padding: 12px 16px; background: var(--color-background-secondary); border-radius: 8px; margin-bottom: 16px; font-family: var(--font-mono); border-left: 4px solid var(--b); }
+.expr span { font-style: normal; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; background: var(--color-background-secondary); padding: 12px; border-radius: 8px; }
+.leg-item { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: var(--color-text-primary); }
+.leg-dot { width: 14px; height: 14px; border-radius: 3px; border: 3px solid; }
+
+/* Example selector */
+.ex-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.ex-btn { padding: 6px 14px; font-size: 13px; border: 1px solid var(--color-border-secondary); border-radius: 6px; cursor: pointer; background: var(--color-background-primary); color: var(--color-text-secondary); transition: all 0.2s; }
+.ex-btn:hover { background: var(--color-background-secondary); }
+.ex-btn.active { background: var(--color-background-secondary); color: var(--color-text-primary); font-weight: 600; border-color: var(--color-text-primary); }
+
+.step-list { counter-reset: step; list-style: none; margin-bottom: 20px; }
+.step-list li { counter-increment: step; padding: 10px 0 10px 36px; position: relative; font-size: 14px; color: var(--color-text-primary); border-bottom: 1px solid var(--color-border-tertiary); }
+.step-list li::before { content: counter(step); position: absolute; left: 0; top: 10px; width: 24px; height: 24px; border-radius: 50%; background: var(--color-text-primary); text-align: center; line-height: 24px; font-size: 12px; font-weight: 600; color: var(--color-background-primary); }
+.step-list li:last-child { border-bottom: none; }
+
+.imp-table { width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 20px; }
+.imp-table th { text-align: left; padding: 10px 12px; font-weight: 600; color: var(--color-text-primary); border-bottom: 2px solid var(--color-border-secondary); background: var(--color-background-secondary); }
+.imp-table td { padding: 10px 12px; border-bottom: 1px solid var(--color-border-tertiary); color: var(--color-text-secondary); vertical-align: middle; }
+.imp-table tr:last-child td { border-bottom: none; }
+
+.badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+.badge.pi { background: var(--color-background-info); color: var(--color-text-info); }
+.badge.epi { background: var(--color-background-success); color: var(--color-text-success); }
+.badge.ri { background: var(--color-background-warning); color: var(--color-text-warning); }
+.badge.si { background: var(--color-border-tertiary); color: var(--color-text-primary); }
+
+.exam-card { border: 1px solid var(--color-border-tertiary); border-radius: 12px; padding: 16px; margin-bottom: 16px; background: var(--color-background-primary); box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+.exam-card h4 { font-size: 15px; font-weight: 600; color: var(--color-text-primary); margin-bottom: 8px; }
+.exam-card p { font-size: 14px; color: var(--color-text-secondary); margin-bottom: 8px; }
+.mono { font-family: var(--font-mono); font-size: 13px; background: var(--color-background-secondary); padding: 2px 6px; border-radius: 4px; color: var(--color-text-primary); }
+.tag { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+.tag.type1 { background: #713f12; color: #fef3c7; }
+.tag.type2 { background: #1e3a8a; color: #dbeafe; }
+.tag.type3 { background: #14532d; color: #f0fdf4; }
+.tag.type4 { background: #4c1d95; color: #f3e8ff; }
+
+.grid-cols-2 { display: grid; grid-template-columns: 1fr; gap: 20px; }
+@media(min-width: 600px) { .grid-cols-2 { grid-template-columns: 1fr 1fr; } }
+.footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--color-border-tertiary); font-size: 13px; color: var(--color-text-secondary); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('tintro')">Introduction</div>
+    <div class="tab" onclick="showTab('t2v')">2-Variable</div>
+    <div class="tab" onclick="showTab('t3v')">3-Variable</div>
+    <div class="tab" onclick="showTab('t4v')">4-Variable</div>
+    <div class="tab" onclick="showTab('t5v')">5-Variable</div>
+    <div class="tab" onclick="showTab('timp')">Implicants</div>
+    <div class="tab" onclick="showTab('texam')">Exam Questions</div>
+  </div>
+
+  <!-- ══════ INTRODUCTION ══════ -->
+  <div id="tintro" class="section active">
+    <h2>Basics of Karnaugh Maps</h2>
+    <p class="desc">A Karnaugh Map (K-map) is a visual method used to simplify Boolean algebra expressions. Instead of using complex algebraic theorems, a K-map uses a grid to group adjacent 1s, which automatically eliminates redundant variables.</p>
+    
+    <div class="exam-card">
+      <h4>1. The Magic of Gray Code</h4>
+      <p>Notice the column and row headers: <strong>00, 01, 11, 10</strong>. This is called Gray Code. In binary, going from 01 to 10 changes two bits at once. In Gray Code, <strong>only one bit changes</strong> between any two adjacent columns or rows.</p>
+      <p>Why does this matter? If two adjacent cells contain a '1', it means the output is true regardless of the one variable that changed. That variable can be eliminated!</p>
+    </div>
+
+    <div class="exam-card">
+      <h4>2. The Wrap-Around Rule</h4>
+      <p>K-maps are not flat squares; they are conceptually <strong>cylinders or toruses (donuts)</strong>. The far-left column is mathematically adjacent to the far-right column (00 differs from 10 by only one bit). The top row is adjacent to the bottom row. You can group 1s across these edges!</p>
+    </div>
+
+    <div class="exam-card">
+      <h4>3. Don't Cares (X)</h4>
+      <p>Sometimes, certain input combinations are impossible (e.g., a BCD code never goes above 1001/9). We mark these impossible outputs as <strong>Don't Cares (X or d)</strong>.</p>
+      <p><strong>The Rule:</strong> You can treat an 'X' as a '1' if it helps you make a larger group. If it doesn't help, treat it as a '0' and ignore it. You <em>never</em> have to group an 'X' just to cover it.</p>
+    </div>
+  </div>
+
+  <!-- ══════ 2-VARIABLE ══════ -->
+  <div id="t2v" class="section">
+    <h2>2-Variable K-Map (AB)</h2>
+    <p class="desc">A 2-variable K-map has 4 cells representing minterms m0 to m3. Variables are typically A and B.</p>
+
+    <div class="grid-cols-2">
+      <div>
+        <h3>Map Layout</h3>
+        <p class="desc">Shows minterm positions and their binary equivalents.</p>
+        <div class="kmap-wrap">
+          <table class="kmap">
+            <tr><th></th><th>B=0</th><th>B=1</th></tr>
+            <tr><th>A=0</th><td class="zero">m0<br><span style="font-size:10px">(00)</span></td><td class="zero">m1<br><span style="font-size:10px">(01)</span></td></tr>
+            <tr><th>A=1</th><td class="zero">m2<br><span style="font-size:10px">(10)</span></td><td class="zero">m3<br><span style="font-size:10px">(11)</span></td></tr>
+          </table>
+        </div>
+      </div>
+      <div>
+        <h3>Core Rules</h3>
+        <ul class="step-list">
+          <li>Groups must be powers of 2: size 1, 2, or 4.</li>
+          <li>Groups can wrap around edges (top-bottom, left-right).</li>
+          <li>Group of 4 = constant 1 (expression is just `1`).</li>
+          <li>Group of 2 = eliminates one variable (1 literal remains).</li>
+          <li>Group of 1 = no variables eliminated (2 literals remain).</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="grid-cols-2">
+      <div>
+        <h3>Example 1: F = Σm(1,2,3)</h3>
+        <div class="kmap-wrap">
+          <table class="kmap">
+            <tr><th></th><th>B=0</th><th>B=1</th></tr>
+            <tr><th>A=0</th><td class="zero">0</td><td class="one g2">1</td></tr>
+            <tr><th>A=1</th><td class="one g1">1</td><td class="one g12">1</td></tr>
+          </table>
+        </div>
+        <div class="legend">
+          <div class="leg-item"><div class="leg-dot" style="border-color:#22c55e"></div>Group m2,m3 (Row A=1) → A</div>
+          <div class="leg-item"><div class="leg-dot" style="border-color:#3b82f6"></div>Group m1,m3 (Col B=1) → B</div>
+        </div>
+        <div class="expr">F = A + B</div>
+      </div>
+
+      <div>
+        <h3>Example 2: F = Σm(0,2)</h3>
+        <div class="kmap-wrap">
+          <table class="kmap">
+            <tr><th></th><th>B=0</th><th>B=1</th></tr>
+            <tr><th>A=0</th><td class="one g3">1</td><td class="zero">0</td></tr>
+            <tr><th>A=1</th><td class="one g3">1</td><td class="zero">0</td></tr>
+          </table>
+        </div>
+        <div class="legend">
+          <div class="leg-item"><div class="leg-dot" style="border-color:#ef4444"></div>Group m0,m2 (Col B=0) → B'</div>
+        </div>
+        <div class="expr">F = B'</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ 3-VARIABLE ══════ -->
+  <div id="t3v" class="section">
+    <h2>3-Variable K-Map (ABC)</h2>
+    <p class="desc">A 3-variable K-map has 8 cells. The columns follow Gray code order: 00, 01, 11, 10.</p>
+
+    <div class="ex-btns" id="ex3-btns">
+      <!-- Buttons injected by JS -->
+    </div>
+
+    <div id="kmap3" class="kmap-wrap"></div>
+    <div class="legend" id="leg3"></div>
+    <div class="expr" id="expr3"></div>
+    <div id="steps3"></div>
+  </div>
+
+  <!-- ══════ 4-VARIABLE ══════ -->
+  <div id="t4v" class="section">
+    <h2>4-Variable K-Map (ABCD)</h2>
+    <p class="desc">A 4-variable K-map has 16 cells. Both rows and columns use Gray code order.</p>
+
+    <div class="ex-btns" id="ex4-btns">
+      <!-- Buttons injected by JS -->
+    </div>
+
+    <div id="kmap4" class="kmap-wrap"></div>
+    <div class="legend" id="leg4"></div>
+    <div class="expr" id="expr4"></div>
+    <div id="steps4"></div>
+  </div>
+
+  <!-- ══════ 5-VARIABLE ══════ -->
+  <div id="t5v" class="section">
+    <h2>5-Variable K-Map (ABCDE)</h2>
+    <p class="desc">A 5-variable K-map has 32 cells. It's too complex to draw as a flat grid without breaking adjacency rules, so it is drawn as <strong>two 4-variable maps side-by-side</strong>: one map for A=0 and one for A=1. The standard rules apply within each map, but you can also group cells that are in the <strong>exact same position</strong> across both maps (imagine stacking the A=1 map directly on top of the A=0 map).</p>
+
+    <div class="ex-btns" id="ex5-btns">
+      <!-- Buttons injected by JS -->
+    </div>
+
+    <div id="kmap5"></div>
+    <div class="legend" id="leg5"></div>
+    <div class="expr" id="expr5"></div>
+    <div id="steps5"></div>
+  </div>
+
+  <!-- ══════ IMPLICANTS ══════ -->
+  <div id="timp" class="section">
+    <h2>Implicants — Types & Definitions</h2>
+    <p class="desc">An <em>implicant</em> is any valid group of 1s. To get the minimal expression, we must understand the hierarchy of implicants.</p>
+
+    <table class="imp-table">
+      <tr>
+        <th>Type</th><th>Definition</th><th>How to find</th>
+      </tr>
+      <tr>
+        <td><span class="badge si">Implicant</span></td>
+        <td>Any valid group of 1s (size 1, 2, 4, 8, etc.).</td>
+        <td>Any valid grouping containing only 1s (or Xs).</td>
+      </tr>
+      <tr>
+        <td><span class="badge pi">Prime Implicant (PI)</span></td>
+        <td>An implicant that <strong>cannot be expanded</strong> any further.</td>
+        <td>Try to enlarge every group. When it hits maximum size, it's a PI.</td>
+      </tr>
+      <tr>
+        <td><span class="badge epi">Essential PI (EPI)</span></td>
+        <td>A Prime Implicant that is the <strong>only</strong> group covering a specific 1-cell.</td>
+        <td>Find a '1' that is only covered by ONE group. That group is an EPI. You MUST include it in the final answer.</td>
+      </tr>
+      <tr>
+        <td><span class="badge ri">Redundant PI</span></td>
+        <td>A Prime Implicant whose 1s are entirely covered by other Essential PIs.</td>
+        <td>After selecting all EPIs, if all 1s are covered, any leftover PIs are redundant and should be dropped.</td>
+      </tr>
+    </table>
+
+    <div class="grid-cols-2">
+      <div>
+        <h3>Step-by-step Minimization</h3>
+        <ul class="step-list">
+          <li><strong>Draw the K-map</strong> — fill cells with 1s, 0s, and Xs.</li>
+          <li><strong>Find all Prime Implicants (PIs)</strong> — make the largest possible groups.</li>
+          <li><strong>Identify Essential PIs (EPIs)</strong> — look for 1s that belong to only one group. Circle those groups!</li>
+          <li><strong>Cover remaining 1s</strong> — pick the fewest remaining PIs to cover any 1s not covered by the EPIs.</li>
+          <li><strong>Write expression</strong> — OR (+) the terms together (SOP).</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Group Size Impact (4-Var Map)</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="exam-card" style="margin:0; text-align:center;">
+            <div style="font-size:24px;font-weight:700;">1 cell</div>
+            <div style="font-size:13px;color:var(--color-text-secondary)">No variables eliminated</div>
+            <div class="mono" style="margin-top:8px">4 literals (e.g. A'BCD)</div>
+          </div>
+          <div class="exam-card" style="margin:0; text-align:center;">
+            <div style="font-size:24px;font-weight:700;color:var(--b)">2 cells</div>
+            <div style="font-size:13px;color:var(--color-text-secondary)">1 variable eliminated</div>
+            <div class="mono" style="margin-top:8px">3 literals (e.g. A'BC)</div>
+          </div>
+          <div class="exam-card" style="margin:0; text-align:center;">
+            <div style="font-size:24px;font-weight:700;color:var(--g)">4 cells</div>
+            <div style="font-size:13px;color:var(--color-text-secondary)">2 variables eliminated</div>
+            <div class="mono" style="margin-top:8px">2 literals (e.g. A'B)</div>
+          </div>
+          <div class="exam-card" style="margin:0; text-align:center;">
+            <div style="font-size:24px;font-weight:700;color:var(--r)">8 cells</div>
+            <div style="font-size:13px;color:var(--color-text-secondary)">3 variables eliminated</div>
+            <div class="mono" style="margin-top:8px">1 literal (e.g. A)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="exam-card" style="margin-top: 24px;">
+      <h3 style="margin-top:0;">Example: PIs, EPIs, and Redundant Terms</h3>
+      <p class="desc">F(A,B,C,D) = Σm(0, 1, 4, 5, 6, 7, 14, 15)</p>
+      
+      <div class="grid-cols-2">
+        <div>
+          <div class="kmap-wrap">
+            <table class="kmap" style="margin:0;">
+              <tr><th></th><th>CD=00</th><th>CD=01</th><th>CD=11</th><th>CD=10</th></tr>
+              <tr><th>AB=00</th>
+                <td class="one g1">1<br><span style="font-size:10px;color:var(--color-text-secondary);font-weight:400;">m0</span></td>
+                <td class="one g1">1<br><span style="font-size:10px;color:var(--color-text-secondary);font-weight:400;">m1</span></td>
+                <td class="zero">0<br><span style="font-size:10px;color:var(--color-text-secondary);font-weight:400;">m3</span></td>
+                <td class="zero">0<br><span style="font-size:10px;color:var(--color-text-secondary);font-weight:400;">m2</span></td>
+              </tr>
+              <tr><th>AB=01</th>
+                <td class="one g13">1<br><span style="font-size:10px;color:var(--color-text-secondary);font-weight:400;">m4</span></td>
+                <td class="one g13">1<br><span style="font-size:10px;color:var(--color-text-secondary);font-weight:400;">m5</span></td>
+                <td class="one g23">1<br><span style="font-size:10px;color:var(--color-text-secondary);font-weight:400;">m7</span></td>
+                <td class="one g23">1<br><span style="font-size:10px;color:var(--color-text-secondary);font-weight:400;">m6</span></td>
+              </tr>
+              <tr><th>AB=11</th>
+                <td class="zero">0<br><span style="font-size:10px;color:var(--color-text-secondary);font-weight:400;">m12</span></td>
+                <td class="zero">0<br><span style="font-size:10px;color:var(--color-text-secondary);font-weight:400;">m13</span></td>
+                <td class="one g2">1<br><span style="font-size:10px;color:var(--color-text-secondary);font-weight:400;">m15</span></td>
+                <td class="one g2">1<br><span style="font-size:10px;color:var(--color-text-secondary);font-weight:400;">m14</span></td>
+              </tr>
+              <tr><th>AB=10</th>
+                <td class="zero">0<br><span style="font-size:10px;color:var(--color-text-secondary);font-weight:400;">m8</span></td>
+                <td class="zero">0<br><span style="font-size:10px;color:var(--color-text-secondary);font-weight:400;">m9</span></td>
+                <td class="zero">0<br><span style="font-size:10px;color:var(--color-text-secondary);font-weight:400;">m11</span></td>
+                <td class="zero">0<br><span style="font-size:10px;color:var(--color-text-secondary);font-weight:400;">m10</span></td>
+              </tr>
+            </table>
+          </div>
+        </div>
+        <div>
+          <ul class="step-list" style="margin-bottom:0;">
+            <li><strong>Find all PIs:</strong> We can form three 2x2 quads.
+              <br><span class="badge pi" style="margin-top:4px;">A'C'</span> (Green), <span class="badge pi">BC</span> (Blue), and <span class="badge pi">A'B</span> (Red)
+            </li>
+            <li><strong>Find EPIs:</strong>
+              <br>• <span class="badge epi" style="margin-top:4px;">A'C'</span> is essential because m0 and m1 are ONLY in this green group.
+              <br>• <span class="badge epi" style="margin-top:4px;">BC</span> is essential because m14 and m15 are ONLY in this blue group.
+            </li>
+            <li><strong>Identify Redundant PIs:</strong>
+              <br>• <span class="badge ri" style="margin-top:4px;">A'B</span> (the red group) is redundant! Look at its cells: m4 & m5 are already covered by A'C'. m6 & m7 are already covered by BC.
+            </li>
+            <li><strong>Final Expression:</strong> Only include the EPIs. We drop the redundant PI completely.
+              <br><div class="expr" style="margin-top:8px; margin-bottom:0; padding:8px 12px;">F = A'C' + BC</div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ EXAM QUESTIONS ══════ -->
+  <div id="texam" class="section">
+    <h2>Decoding Exam Questions</h2>
+    <p class="desc">Examiners provide the same logic problem in different formats. Here's how to translate them to a K-map.</p>
+
+    <div class="exam-card">
+      <div class="tag type1">Form 1: Minterm Shorthand (SOP)</div>
+      <h4>F(A,B,C,D) = Σm(0,1,3,7,8)</h4>
+      <p>The Σ symbol means <strong>Sum of Products (SOP)</strong>. Place a <strong>1</strong> in the cells numbered 0, 1, 3, 7, and 8. Place 0s everywhere else. Group the 1s.</p>
+    </div>
+
+    <div class="exam-card">
+      <div class="tag type4">Form 2: Maxterm Shorthand (POS)</div>
+      <h4>F(A,B,C,D) = ΠM(2,4,5,6,9...)</h4>
+      <p>The Π symbol means <strong>Product of Sums (POS)</strong>. Place a <strong>0</strong> in these numbered cells. To solve for POS, you <strong>group the 0s instead of the 1s</strong>.</p>
+      <ul style="margin-left:20px; font-size: 14px; margin-top: 8px;">
+        <li>When writing the term: A value of 0 = normal literal (A). A value of 1 = complemented literal (A'). <em>(This is the exact opposite of SOP!)</em></li>
+        <li>Join variables in a group with OR (+). Join different groups with AND (•).</li>
+        <li>Result looks like: <span class="mono">(A + B' + C)(A' + D)</span></li>
+      </ul>
+    </div>
+
+    <div class="exam-card">
+      <div class="tag type2">Form 3: Algebraic / Canonical SOP</div>
+      <h4 class="mono">F = A'B'C' + A'B'C + A'BC</h4>
+      <p>Expand each term to find which cells are 1. A complement (') means the variable = 0; no complement means it = 1.</p>
+      <p style="margin-top:6px; font-size: 13px;">Example: <span class="mono">A'B'C'</span> means A=0, B=0, C=0 → cell m0.</p>
+    </div>
+
+    <div class="exam-card">
+      <div class="tag type3">Form 4: Don't-Cares</div>
+      <h4>F(A,B,C,D) = Σm(1,3,7) + d(0,2,5)</h4>
+      <p>Put <strong>1</strong> in minterm cells, and <strong>X</strong> in the "d" cells. Treat X as a 1 <em>only</em> if it helps you draw a bigger circle. Otherwise, ignore it.</p>
+    </div>
+  </div>
+
+  <div class="footer">Built by Muhammad Ahmad Amin</div>
+</div>
+
+<script>
+// ── Core Layout variables ──────────────────────────────────────────────
+// rowval=[0,4,12,8], colval=[0,1,3,2]
+const RV=[0,4,12,8], CV=[0,1,3,2];
+
+// ── 3-Variable examples ──────────────────────────────────────────────
+const ex3 = [
+  {
+    title: "Basic Grouping",
+    desc: "F = Σm(0,2,3,6,7)",
+    vals: [1,0,1,1, 0,0,1,1], 
+    groups: [
+      { cells:[2,3,6,7], color:'var(--g)', label:'Quad: m2,m3,m6,m7 → BC' },
+      { cells:[0,3],     color:'var(--b)', label:'Pair: m0,m2 (Wraparound) → A\'C\'' },
+    ],
+    expr: "F = BC + A'C'",
+    steps: ["Group the quad (m2,m3,m6,m7). A changes (0 to 1), so A is dropped. B=1, C stays 1. Result: BC.", "m0 is left. Group m0 with m2 (edges wrap!). A=0, C=0. Result: A'C'."]
+  },
+  {
+    title: "Column Quad",
+    desc: "F = Σm(1,3,5,7)",
+    vals: [0,1,1,0, 0,1,1,0],
+    groups: [
+      { cells:[1,2,5,6], color:'var(--g)', label:'Quad: m1,m3,m5,m7 → C' },
+    ],
+    expr: "F = C",
+    steps: ["All minterms form a vertical 2x2 square.", "A changes (0 to 1). B changes (0 to 1). Only C remains constant at 1.", "Result: C."]
+  },
+  {
+    title: "Overlapping Groups",
+    desc: "F = Σm(3,4,5,6,7)",
+    vals: [0,0,1,0, 1,1,1,1], 
+    groups: [
+      { cells:[4,5,6,7], color:'var(--r)', label:'Quad: m4,m5,m6,m7 → A' },
+      { cells:[2,6],     color:'var(--o)', label:'Pair: m3,m7 → BC' },
+    ],
+    expr: "F = A + BC",
+    steps: ["The entire bottom row is 1s. Grouping all 4 gives A.", "m3 is still uncovered. We group it with m7 to form a pair. Result: BC.", "Note: We reuse m7. Overlapping is allowed and encouraged to make groups larger!"]
+  },
+  {
+    title: "With Don't Cares",
+    desc: "F = Σm(1,3,7) + d(5)",
+    vals: [0,1,1,0, 0,'X',1,0], 
+    groups: [
+      { cells:[1,2,5,6], color:'var(--p)', label:'Quad: m1,m3,m5(X),m7 → C' },
+    ],
+    expr: "F = C",
+    steps: ["We have 1s at m1, m3, m7. m5 is an 'X'.", "Instead of making small pairs, we treat the 'X' at m5 as a '1' to complete the 2x2 quad.", "Result: C (Much simpler than A'C + BC)."]
+  }
+];
+
+// ── 4-Variable examples ──────────────────────────────────────────────
+function mCell4(m) {
+  for(let r=0;r<4;r++) for(let c=0;c<4;c++) if(RV[r]+CV[c]===m) return r*4+c;
+  return -1;
+}
+
+const ex4 = [
+  {
+    title: "Large Group (8)",
+    desc: "F = Σm(0,1,2,3,4,5,6,7)",
+    minterms:[0,1,2,3,4,5,6,7],
+    groups:[
+      { cells:[0,1,2,3,4,5,6,7].map(mCell4), color:'var(--g)', label:"Octet (Top half) → A'" }
+    ],
+    expr: "F = A'",
+    steps:["All 8 cells in top two rows are 1s.","B, C, and D all change values within this group.","Only A remains constant at 0. F = A'."]
+  },
+  {
+    title: "Four Corners",
+    desc: "F = Σm(0,2,8,10)",
+    minterms:[0,2,8,10],
+    groups:[
+      { cells:[0,2,8,10].map(mCell4), color:'var(--b)', label:"Quad (Corners) → B'D'" }
+    ],
+    expr: "F = B'D'",
+    steps:["The map wraps top-to-bottom AND left-to-right.","The four corners form a valid 2x2 quad!","Look at the coordinates: A changes, B is 0. C changes, D is 0.","Result: B'D'."]
+  },
+  {
+    title: "Overlapping Quads",
+    desc: "F = Σm(5,7,8,9,10,11,13,15)",
+    minterms:[5,7,8,9,10,11,13,15],
+    groups:[
+      { cells:[5,7,13,15].map(mCell4), color:'var(--r)', label:"Quad 1 → BD" },
+      { cells:[8,9,10,11].map(mCell4), color:'var(--o)', label:"Quad 2 → AB'" }
+    ],
+    expr: "F = BD + AB'",
+    steps:["m8,9,10,11 form a solid row (Quad) → AB'.","m5,7,13,15 form a 2x2 square in the middle-right (Quad) → BD.","All 1s are covered. SOP: BD + AB'."]
+  },
+  {
+    title: "Don't Cares (X)",
+    desc: "F = Σm(2,6,10,14) + d(3,7,11,15)",
+    minterms:[2,6,10,14], dontcares:[3,7,11,15],
+    groups:[
+      { cells:[2,3,6,7,10,11,14,15].map(mCell4), color:'var(--p)', label:"Octet (Right half) → C" }
+    ],
+    expr: "F = C",
+    steps:["We have 1s forming a column at CD=10.","The don't cares form a column at CD=11.","Treat all Xs as 1s to combine the two columns into a massive 8-cell group!","A, B, D change. Only C=1 is constant. F = C."]
+  }
+];
+
+// ── 5-Variable examples ──────────────────────────────────────────────
+function mCell5(m) {
+  const mapIdx = m >= 16 ? 1 : 0;
+  const rem = m % 16;
+  for(let r=0;r<4;r++) {
+    for(let c=0;c<4;c++) {
+      if(RV[r]+CV[c] === rem) return (mapIdx * 16) + (r*4+c);
+    }
+  }
+  return -1;
+}
+
+const ex5 = [
+  {
+    title: "Single Map Group",
+    desc: "F = Σm(0,1,2,3,4,5,6,7)",
+    minterms: [0,1,2,3,4,5,6,7],
+    groups: [
+      { cells: [0,1,2,3,4,5,6,7].map(mCell5), color: 'var(--b)', label: "Top Octet in A=0 map → A'B'" }
+    ],
+    expr: "F = A'B'",
+    steps: ["All minterms are within the left map (A=0).", "They form an 8-cell group covering the top two rows (B=0).", "C, D, and E all change. A=0 and B=0 remain constant. Result: A'B'."]
+  },
+  {
+    title: "Stacking (3D Adjacency)",
+    desc: "F = Σm(4,6,20,22)",
+    minterms: [4,6,20,22],
+    groups: [
+      { cells: [4,6,20,22].map(mCell5), color: 'var(--g)', label: "Stacked Pair of Pairs → B'CD'E'" }
+    ],
+    expr: "F = B'C D'E'",
+    steps: ["m4 and m6 form a pair in the A=0 map. m20 and m22 form a pair in the A=1 map.", "Notice they are in the exact same positions across the two maps!", "By 'stacking' the maps, they form a 3D Quad.", "A changes (0 to 1) so it is eliminated. B=0, C=1, D=0, E=0. Result: B'CD'E'."]
+  },
+  {
+    title: "Massive 3D Group",
+    desc: "F = Σm(8,9,10,11, 24,25,26,27)",
+    minterms: [8,9,10,11, 24,25,26,27],
+    groups: [
+      { cells: [8,9,10,11,24,25,26,27].map(mCell5), color: 'var(--p)', label: "Stacked Quads → BC'" }
+    ],
+    expr: "F = BC'",
+    steps: ["m8-11 form a full row (Quad) in the A=0 map.", "m24-27 form a full row (Quad) in the exact same position in the A=1 map.", "Combining them across the maps gives an Octet (8 cells).", "A changes, D changes, E changes. Only B=1 and C=0 remain constant. Result: BC'."]
+  },
+  {
+    title: "Stacked Corners",
+    desc: "F = Σm(0,2,8,10, 16,18,24,26)",
+    minterms: [0,2,8,10, 16,18,24,26],
+    groups: [
+      { cells: [0,2,8,10, 16,18,24,26].map(mCell5), color: 'var(--o)', label: "Stacked Corners (Octet) → B'E'" }
+    ],
+    expr: "F = B'E'",
+    steps: [
+      "The four corners of a single map form a valid Quad (wrap-around top-to-bottom and left-to-right).",
+      "Here, we have the four corners in BOTH the A=0 map and the A=1 map.",
+      "By stacking them, these two Quads combine into an Octet (8 cells)!",
+      "A changes (0 to 1), C changes (0 to 1), D changes (0 to 1). Only B=0 and E=0 remain constant. Result: B'E'."
+    ]
+  }
+];
+
+// ── Render functions ──────────────────────────────────────────────
+function render3v(idx) {
+  const e = ex3[idx];
+  const cellGroups = Array(8).fill(null).map(()=>[]);
+  (e.groups||[]).forEach((g,gi)=>g.cells.forEach(ci=>cellGroups[ci].push(gi)));
+  const mNums = ['0','1','3','2','4','5','7','6'];
+
+  let html = `<div style="margin-bottom:8px; font-weight:600; color:var(--color-text-primary);">${e.desc}</div>
+  <table class="kmap" style="margin-bottom:14px;">
+    <tr><th></th><th>BC=00</th><th>BC=01</th><th>BC=11</th><th>BC=10</th></tr>`;
+  for(let r=0;r<2;r++){
+    html += `<tr><th>A=${r}</th>`;
+    for(let c=0;c<4;c++){
+      const ci = r*4+c;
+      const val = e.vals[ci];
+      const gs = cellGroups[ci];
+      
+      let style='';
+      if(gs.length===1) style=`outline:3px solid ${e.groups[gs[0]].color};outline-offset:-3px;border-radius:4px; z-index:1;`;
+      else if(gs.length>=2) style=`box-shadow:inset 0 0 0 3px ${e.groups[gs[0]].color},inset 0 0 0 6px ${e.groups[gs[1]].color};border-radius:4px; z-index:2;`;
+      
+      const displayVal = val === 1 ? '1' : (val === 'X' ? 'X' : '0');
+      const cellClass = val === 1 ? 'one' : (val === 'X' ? 'dc' : 'zero');
+
+      html += `<td class="${cellClass}" style="${style}">${displayVal}<br><span style="font-size:10px;color:var(--color-text-secondary);font-weight:400;">m${mNums[ci]}</span></td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</table>';
+  document.getElementById('kmap3').innerHTML = html;
+
+  let legHtml='';
+  (e.groups||[]).forEach((g)=>{
+    legHtml+=`<div class="leg-item"><div class="leg-dot" style="border-color:${g.color}"></div><span>${g.label}</span></div>`;
+  });
+  document.getElementById('leg3').innerHTML=legHtml;
+  document.getElementById('expr3').textContent='Minimal SOP: '+e.expr;
+
+  let stHtml='<ul class="step-list">';
+  e.steps.forEach(s=>stHtml+=`<li>${s}</li>`);
+  stHtml+='</ul>';
+  document.getElementById('steps3').innerHTML=stHtml;
+}
+
+function render4v(idx) {
+  const e = ex4[idx];
+  const cellGroups = Array(16).fill(null).map(()=>[]);
+  (e.groups||[]).forEach((g,gi)=>g.cells.forEach(ci=>{if(ci>=0&&ci<16)cellGroups[ci].push(gi);}));
+
+  let html=`<div style="margin-bottom:8px; font-weight:600; color:var(--color-text-primary);">${e.desc}</div>
+  <table class="kmap" style="margin-bottom:14px;">
+    <tr><th></th><th>CD=00</th><th>CD=01</th><th>CD=11</th><th>CD=10</th></tr>`;
+  const rowLabels=['AB=00','AB=01','AB=11','AB=10'];
+  for(let r=0;r<4;r++){
+    html+=`<tr><th style="font-size:11px;width:60px">${rowLabels[r]}</th>`;
+    for(let c=0;c<4;c++){
+      const ci=r*4+c;
+      const m=RV[r]+CV[c];
+      
+      const isMin = e.minterms.includes(m);
+      const isDc = e.dontcares && e.dontcares.includes(m);
+      const displayVal = isMin ? '1' : (isDc ? 'X' : '0');
+      const cellClass = isMin ? 'one' : (isDc ? 'dc' : 'zero');
+
+      const gs=cellGroups[ci];
+      let style='';
+      if(gs.length===1) style=`outline:3px solid ${e.groups[gs[0]].color};outline-offset:-3px;border-radius:4px; z-index:1;`;
+      else if(gs.length>=2) style=`box-shadow:inset 0 0 0 3px ${e.groups[gs[0]].color},inset 0 0 0 6px ${e.groups[gs[1]].color};border-radius:4px; z-index:2;`;
+      
+      html+=`<td class="${cellClass}" style="${style}">${displayVal}<br><span style="font-size:10px;color:var(--color-text-secondary);font-weight:400;">m${m}</span></td>`;
+    }
+    html+='</tr>';
+  }
+  html+='</table>';
+  document.getElementById('kmap4').innerHTML=html;
+
+  let legHtml='';
+  (e.groups||[]).forEach((g)=>{
+    legHtml+=`<div class="leg-item"><div class="leg-dot" style="border-color:${g.color}"></div><span>${g.label}</span></div>`;
+  });
+  document.getElementById('leg4').innerHTML=legHtml;
+  document.getElementById('expr4').textContent='Minimal SOP: '+e.expr;
+
+  let stHtml='<ul class="step-list">';
+  e.steps.forEach(s=>stHtml+=`<li>${s}</li>`);
+  stHtml+='</ul>';
+  document.getElementById('steps4').innerHTML=stHtml;
+}
+
+function render5v(idx) {
+  const e = ex5[idx];
+  const cellGroups = Array(32).fill(null).map(()=>[]);
+  (e.groups||[]).forEach((g,gi)=>g.cells.forEach(ci=>{if(ci>=0&&ci<32)cellGroups[ci].push(gi);}));
+
+  let html = `<div style="margin-bottom:12px; font-weight:600; text-align:center; color:var(--color-text-primary); width:100%;">${e.desc}</div>`;
+  html += `<div class="maps-5v">`;
+
+  const rowLabels=['BC=00','BC=01','BC=11','BC=10'];
+  
+  // Render two maps (A=0 and A=1)
+  for(let mapIdx = 0; mapIdx < 2; mapIdx++) {
+    html += `<div class="map-wrapper">
+      <div class="map-title">A = ${mapIdx}</div>
+      <table class="kmap">
+      <tr><th></th><th>DE=00</th><th>DE=01</th><th>DE=11</th><th>DE=10</th></tr>`;
+      
+    for(let r=0;r<4;r++){
+      html+=`<tr><th style="font-size:11px;width:60px">${rowLabels[r]}</th>`;
+      for(let c=0;c<4;c++){
+        const baseCi = mapIdx * 16;
+        const ci = baseCi + (r*4+c);
+        const m = (mapIdx * 16) + RV[r] + CV[c];
+        
+        const isMin = e.minterms && e.minterms.includes(m);
+        const isDc = e.dontcares && e.dontcares.includes(m);
+        const displayVal = isMin ? '1' : (isDc ? 'X' : '0');
+        const cellClass = isMin ? 'one' : (isDc ? 'dc' : 'zero');
+
+        const gs = cellGroups[ci];
+        let style='';
+        if(gs.length===1) style=`outline:3px solid ${e.groups[gs[0]].color};outline-offset:-3px;border-radius:4px; z-index:1;`;
+        else if(gs.length>=2) style=`box-shadow:inset 0 0 0 3px ${e.groups[gs[0]].color},inset 0 0 0 6px ${e.groups[gs[1]].color};border-radius:4px; z-index:2;`;
+        
+        html+=`<td class="${cellClass}" style="${style}">${displayVal}<br><span style="font-size:10px;color:var(--color-text-secondary);font-weight:400;">m${m}</span></td>`;
+      }
+      html+='</tr>';
+    }
+    html += `</table></div>`;
+  }
+  
+  html += `</div>`;
+  document.getElementById('kmap5').innerHTML = html;
+
+  let legHtml='';
+  (e.groups||[]).forEach((g)=>{
+    legHtml+=`<div class="leg-item"><div class="leg-dot" style="border-color:${g.color}"></div><span>${g.label}</span></div>`;
+  });
+  document.getElementById('leg5').innerHTML=legHtml;
+  document.getElementById('expr5').textContent='Minimal SOP: '+e.expr;
+
+  let stHtml='<ul class="step-list">';
+  e.steps.forEach(s=>stHtml+=`<li>${s}</li>`);
+  stHtml+='</ul>';
+  document.getElementById('steps5').innerHTML=stHtml;
+}
+
+
+// ── Initialization & Tab Switching ────────────────────────────────────
+function showTab(id){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  
+  const labels={'tintro':'Introduction', 't2v':'2-Variable','t3v':'3-Variable','t4v':'4-Variable','t5v':'5-Variable','timp':'Implicants','texam':'Exam Questions'};
+  document.querySelectorAll('.tab').forEach(t=>{if(t.textContent===labels[id])t.classList.add('active');});
+}
+
+function initButtons() {
+  const b3 = document.getElementById('ex3-btns');
+  ex3.forEach((ex, i) => {
+    b3.innerHTML += `<button class="ex-btn ${i===0?'active':''}" onclick="selEx(3, ${i}, this)">${ex.title}</button>`;
+  });
+  const b4 = document.getElementById('ex4-btns');
+  ex4.forEach((ex, i) => {
+    b4.innerHTML += `<button class="ex-btn ${i===0?'active':''}" onclick="selEx(4, ${i}, this)">${ex.title}</button>`;
+  });
+  const b5 = document.getElementById('ex5-btns');
+  ex5.forEach((ex, i) => {
+    b5.innerHTML += `<button class="ex-btn ${i===0?'active':''}" onclick="selEx(5, ${i}, this)">${ex.title}</button>`;
+  });
+}
+
+function selEx(type, idx, btn) {
+  document.querySelectorAll(`#ex${type}-btns .ex-btn`).forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if(type === 3) render3v(idx);
+  if(type === 4) render4v(idx);
+  if(type === 5) render5v(idx);
+}
+
+// Run on load
+initButtons();
+render3v(0);
+render4v(0);
+render5v(0);
+</script>
+</body>
+</html>
